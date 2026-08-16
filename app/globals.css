@@ -1,0 +1,55 @@
+:root {
+  --ink: #0b0c0a;
+  --panel: #131512;
+  --panel-2: #1a1d19;
+  --rule: #2a2e27;
+  --rule-bright: #3b4036;
+  --text: #d8d6cc;
+  --text-dim: #8b8a80;
+  --text-faint: #5c5b53;
+
+  --error: #e0523a;
+  --warn: #d99a2b;
+  --info: #6d8b9a;
+  --ok: #7d9a4e;
+
+  --accent: #e8a33d;
+
+  --u: 4px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--ink);
+}
+
+body {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(255, 255, 255, 0.008) 3px,
+      rgba(255, 255, 255, 0.008) 4px
+    ),
+    var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+}

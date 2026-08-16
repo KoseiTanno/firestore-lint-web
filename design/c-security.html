@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C — security / firestore-lint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Spline+Sans+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:        #10131a;
+    --bg-2:      #171b24;
+    --bg-3:      #1e2330;
+    --edge:      #2b3242;
+    --edge-hot:  #3c4557;
+
+    --fg:        #e6e9f0;
+    --fg-2:      #98a1b3;
+    --fg-3:      #616b80;
+
+    --error:     #ff4d4d;
+    --error-dim: #7a2020;
+    --warn:      #ffb020;
+    --warn-dim:  #7a5310;
+    --info:      #4aa8d8;
+    --info-dim:  #1d4c66;
+    --pass:      #35d17f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Chivo', system-ui, sans-serif;
+    background:
+      radial-gradient(1100px 500px at 12% -8%, rgba(255,77,77,.06), transparent 60%),
+      var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono { font-family: 'Spline Sans Mono', ui-monospace, monospace; }
+
+  .shell { max-width: 78rem; margin: 0 auto; padding: 0 1.75rem 6rem; }
+
+  /* ─── top bar ────────────────────────────────────────── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--edge);
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-weight: 900;
+    font-size: 1.0625rem;
+    letter-spacing: -0.03em;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .logo::before {
+    content: '';
+    width: 14px; height: 14px;
+    background: var(--error);
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+  .ver { font-size: 0.6875rem; color: var(--fg-3); letter-spacing: .08em; }
+  .topbar .push { margin-left: auto; }
+  .shield {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .75rem;
+    color: var(--pass);
+    border: 1px solid rgba(53,209,127,.35);
+    background: rgba(53,209,127,.07);
+    padding: .35rem .75rem;
+    border-radius: 2px;
+    letter-spacing: .02em;
+  }
+  .shield::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--pass);
+    box-shadow: 0 0 8px var(--pass);
+  }
+
+  /* ─── verdict banner ─────────────────────────────────── */
+  .verdict {
+    margin: 2.5rem 0 2rem;
+    border: 1px solid var(--edge);
+    border-left: 5px solid var(--error);
+    background: linear-gradient(90deg, rgba(255,77,77,.09), transparent 42%), var(--bg-2);
+    padding: 1.75rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2rem;
+    align-items: center;
+  }
+  @media (max-width: 820px) { .verdict { grid-template-columns: 1fr; } }
+
+  .verdict h1 {
+    font-size: clamp(1.5rem, 3.4vw, 2.125rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.12;
+  }
+  .verdict h1 span { color: var(--error); }
+  .verdict p {
+    margin-top: .6rem;
+    color: var(--fg-2);
+    font-size: .9375rem;
+    max-width: 52ch;
+  }
+
+  .meters { display: flex; gap: .5rem; }
+  .meter {
+    min-width: 5.25rem;
+    border: 1px solid var(--edge);
+    background: var(--bg-3);
+    padding: .85rem .9rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .meter::before {
+    content: '';
+    position: absolute; inset: auto 0 0 0;
+    height: 3px;
+  }
+  .meter[data-sev="error"]::before { background: var(--error); }
+  .meter[data-sev="warn"]::before  { background: var(--warn); }
+  .meter[data-sev="info"]::before  { background: var(--info); }
+  .meter b {
+    display: block;
+    font-size: 1.875rem;
+    font-weight: 900;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .meter[data-sev="error"] b { color: var(--error); }
+  .meter[data-sev="warn"]  b { color: var(--warn); }
+  .meter[data-sev="info"]  b { color: var(--fg-3); }
+  .meter span {
+    display: block;
+    margin-top: .4rem;
+    font-size: .625rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+  }
+
+  /* ─── layout ─────────────────────────────────────────── */
+  .cols {
+    display: grid;
+    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 1000px) { .cols { grid-template-columns: 1fr; } }
+
+  .card {
+    border: 1px solid var(--edge);
+    background: var(--bg-2);
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .8rem 1rem;
+    border-bottom: 1px solid var(--edge);
+    font-size: .6875rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    font-weight: 700;
+  }
+  .card-head .push { margin-left: auto; }
+
+  .chip {
+    font: inherit;
+    font-family: 'Chivo', sans-serif;
+    font-size: .6875rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--fg-2);
+    background: var(--bg-3);
+    border: 1px solid var(--edge-hot);
+    padding: .3rem .6rem;
+    cursor: pointer;
+    transition: .14s;
+  }
+  .chip:hover { color: var(--fg); border-color: var(--info); background: rgba(74,168,216,.1); }
+
+  .source {
+    font-family: 'Spline Sans Mono', monospace;
+    font-size: .75rem;
+    line-height: 1.9;
+    padding: 1rem 0;
+    overflow-x: auto;
+  }
+  .source .row { display: flex; padding: 0 1rem; }
+  .source .row[data-sev="error"] { background: rgba(255,77,77,.09); box-shadow: inset 3px 0 0 var(--error); }
+  .source .row[data-sev="warn"]  { background: rgba(255,176,32,.08); box-shadow: inset 3px 0 0 var(--warn); }
+  .source .n {
+    width: 2rem;
+    flex: none;
+    color: var(--fg-3);
+    user-select: none;
+    text-align: right;
+    padding-right: 1rem;
+  }
+  .source .t { white-space: pre; }
+  .source .kw { color: #8fb8ff; }
+  .source .st { color: #ffb887; }
+
+  /* ─── findings ───────────────────────────────────────── */
+  .stack { display: flex; flex-direction: column; gap: 1rem; }
+
+  .alert { border: 1px solid var(--edge); background: var(--bg-2); position: relative; }
+  .alert::before {
+    content: '';
+    position: absolute; inset: 0 auto 0 0;
+    width: 4px;
+  }
+  .alert[data-sev="error"]::before { background: var(--error); }
+  .alert[data-sev="warn"]::before  { background: var(--warn); }
+  .alert[data-sev="info"]::before  { background: var(--info); }
+
+  .alert-head {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    padding: .9rem 1.15rem .9rem 1.5rem;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-size: .625rem;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    padding: .2rem .5rem;
+    border: 1px solid;
+  }
+  .alert[data-sev="error"] .tag { color: var(--error); border-color: var(--error-dim); background: rgba(255,77,77,.1); }
+  .alert[data-sev="warn"]  .tag { color: var(--warn);  border-color: var(--warn-dim);  background: rgba(255,176,32,.1); }
+  .alert[data-sev="info"]  .tag { color: var(--info);  border-color: var(--info-dim);  background: rgba(74,168,216,.1); }
+
+  .where { font-family: 'Spline Sans Mono', monospace; font-size: .75rem; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+  .ruleid {
+    margin-left: auto;
+    font-family: 'Spline Sans Mono', monospace;
+    font-size: .75rem;
+    color: var(--fg-2);
+    text-decoration: none;
+    border-bottom: 1px solid var(--edge-hot);
+  }
+  .ruleid:hover { color: var(--info); border-bottom-color: var(--info); }
+
+  .alert-body { padding: 0 1.15rem 1.15rem 1.5rem; }
+  .alert-body > p {
+    font-size: .9375rem;
+    color: var(--fg);
+    max-width: 62ch;
+  }
+  .evidence {
+    margin-top: .85rem;
+    font-family: 'Spline Sans Mono', monospace;
+    font-size: .75rem;
+    color: var(--fg-2);
+    background: var(--bg);
+    border: 1px solid var(--edge);
+    padding: .6rem .85rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .alert-actions { margin-top: .95rem; }
+
+  /* ─── explanation ────────────────────────────────────── */
+  .brief {
+    margin: 1rem 1.15rem 0 1.5rem;
+    border: 1px solid var(--info-dim);
+    background: linear-gradient(180deg, rgba(74,168,216,.08), transparent 55%), var(--bg-3);
+  }
+  .brief-head {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .6rem .9rem;
+    border-bottom: 1px solid var(--info-dim);
+    font-size: .625rem;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--info);
+  }
+  .brief-head .push { margin-left: auto; color: var(--fg-3); font-weight: 400; letter-spacing: .06em; }
+  .brief-body { padding: 1rem .9rem 1.15rem; }
+  .brief-body p { font-size: .875rem; color: var(--fg-2); max-width: 62ch; }
+  .brief-body p + p { margin-top: .8rem; }
+  .brief-body code {
+    font-family: 'Spline Sans Mono', monospace;
+    font-size: .75rem;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--edge);
+    padding: .05rem .3rem;
+  }
+  .caret {
+    display: inline-block;
+    width: 7px; height: 1em;
+    background: var(--info);
+    vertical-align: -.12em;
+    margin-left: 3px;
+    animation: blink 1.05s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .footnote {
+    margin-top: 2.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--edge);
+    font-size: .75rem;
+    color: var(--fg-3);
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <span class="logo">firestore-lint</span>
+    <span class="ver">v0.1.1 · 9 rules</span>
+    <span class="push"></span>
+    <span class="shield">rules never leave this browser</span>
+  </div>
+
+  <div class="verdict">
+    <div>
+      <h1>This ruleset is <span>publicly writable.</span></h1>
+      <p>
+        Three findings would let a stranger read or modify data in your project today.
+        Deployed rules take effect for every user the moment you ship them.
+      </p>
+    </div>
+    <div class="meters">
+      <div class="meter" data-sev="error"><b>3</b><span>Error</span></div>
+      <div class="meter" data-sev="warn"><b>1</b><span>Warn</span></div>
+      <div class="meter" data-sev="info"><b>0</b><span>Info</span></div>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <!-- ── source ── -->
+    <aside class="card">
+      <div class="card-head">
+        <span>firestore.rules</span>
+        <span class="push"></span>
+        <button class="chip">vuln</button>
+        <button class="chip">clean</button>
+      </div>
+      <div class="source">
+        <div class="row"><span class="n">1</span><span class="t"><span class="kw">rules_version</span> = <span class="st">'2'</span>;</span></div>
+        <div class="row"><span class="n">2</span><span class="t"><span class="kw">service</span> cloud.firestore {</span></div>
+        <div class="row"><span class="n">3</span><span class="t">  <span class="kw">match</span> /databases/{db}/documents {</span></div>
+        <div class="row"><span class="n">4</span><span class="t">    <span class="kw">match</span> /posts/{postId} {</span></div>
+        <div class="row" data-sev="error"><span class="n">5</span><span class="t">      <span class="kw">allow</span> read: <span class="kw">if</span> true;</span></div>
+        <div class="row" data-sev="warn"><span class="n">6</span><span class="t">      <span class="kw">allow</span> write: <span class="kw">if</span> request.auth != null;</span></div>
+        <div class="row"><span class="n">7</span><span class="t">    }</span></div>
+        <div class="row"><span class="n">8</span><span class="t"></span></div>
+        <div class="row"><span class="n">9</span><span class="t">    <span class="kw">match</span> /{document=**} {</span></div>
+        <div class="row" data-sev="error"><span class="n">10</span><span class="t">      <span class="kw">allow</span> read, write: <span class="kw">if</span> request.time &lt; timestamp.date(2026, 1, 1);</span></div>
+        <div class="row"><span class="n">11</span><span class="t">    }</span></div>
+        <div class="row"><span class="n">12</span><span class="t">  }</span></div>
+        <div class="row"><span class="n">13</span><span class="t">}</span></div>
+      </div>
+    </aside>
+
+    <!-- ── findings ── -->
+    <main class="stack">
+
+      <article class="alert" data-sev="error">
+        <div class="alert-head">
+          <span class="tag">Error</span>
+          <span class="where">5:7</span>
+          <a class="ruleid" href="#">no-public-read</a>
+        </div>
+        <div class="alert-body">
+          <p><code>allow read: if true</code> exposes this path to the entire internet.</p>
+          <div class="evidence">allow read: if true;</div>
+          <div class="alert-actions"><button class="chip">Explain</button></div>
+        </div>
+
+        <div class="brief">
+          <div class="brief-head">
+            <span>Why this matters</span>
+            <span class="push">Haiku 4.5</span>
+          </div>
+          <div class="brief-body">
+            <p>
+              Any person on the internet can read every document under <code>/posts</code> — no account,
+              no token, just a fetch against your project. If those documents hold draft content,
+              author emails, or anything not meant to be public, it is already public.
+            </p>
+            <p>
+              Scope the read to whoever should actually see it. For a published-posts collection that
+              usually means checking a flag on the document itself:
+              <code>allow read: if resource.data.published == true;</code><span class="caret"></span>
+            </p>
+          </div>
+        </div>
+      </article>
+
+      <article class="alert" data-sev="error">
+        <div class="alert-head">
+          <span class="tag">Error</span>
+          <span class="where">10:7</span>
+          <a class="ruleid" href="#">no-wildcard-write</a>
+        </div>
+        <div class="alert-body">
+          <p>Recursive wildcard path allows writes to every document beneath it.</p>
+          <div class="evidence">allow read, write: if request.time &lt; timestamp.date(2026, 1, 1);</div>
+          <div class="alert-actions"><button class="chip">Explain</button></div>
+        </div>
+      </article>
+
+      <article class="alert" data-sev="error">
+        <div class="alert-head">
+          <span class="tag">Error</span>
+          <span class="where">10:7</span>
+          <a class="ruleid" href="#">no-expired-test-mode</a>
+        </div>
+        <div class="alert-body">
+          <p>Test-mode rule expired on 2026-01-01; this path now denies all access.</p>
+          <div class="evidence">allow read, write: if request.time &lt; timestamp.date(2026, 1, 1);</div>
+          <div class="alert-actions"><button class="chip">Explain</button></div>
+        </div>
+      </article>
+
+      <article class="alert" data-sev="warn">
+        <div class="alert-head">
+          <span class="tag">Warn</span>
+          <span class="where">6:7</span>
+          <a class="ruleid" href="#">prefer-granular-write</a>
+        </div>
+        <div class="alert-body">
+          <p>Prefer create, update, and delete over the broad write method.</p>
+          <div class="evidence">allow write: if request.auth != null;</div>
+          <div class="alert-actions"><button class="chip">Explain</button></div>
+        </div>
+      </article>
+
+    </main>
+  </div>
+
+  <div class="footnote">
+    <span>4 findings · analysed locally in 3 ms · 0 bytes uploaded</span>
+    <span>firestore-lint · MIT</span>
+  </div>
+
+</div>
+</body>
+</html>

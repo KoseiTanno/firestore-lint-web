@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>B — document / firestore-lint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper:      #f7f7f4;
+    --paper-2:    #efefe9;
+    --ink:        #16181c;
+    --ink-2:      #3d424b;
+    --ink-3:      #767c86;
+    --rule:       #d9d9d2;
+    --rule-soft:  #e7e7e0;
+
+    --error:  #a8321f;
+    --warn:   #8a6414;
+    --info:   #3c5c72;
+
+    --mark:   #1b3a5c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Archivo', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 74rem;
+    margin: 0 auto;
+    padding: 0 2.5rem 8rem;
+  }
+
+  /* ─── masthead ───────────────────────────────────────── */
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 4.5rem 0 1.75rem;
+    margin-bottom: 3.5rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 2rem;
+  }
+  @media (max-width: 760px) {
+    .masthead { grid-template-columns: 1fr; align-items: start; }
+  }
+
+  h1 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    font-size: clamp(2.75rem, 6vw, 4.25rem);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--mark);
+  }
+  .standfirst {
+    margin-top: 1rem;
+    font-size: 1.0625rem;
+    color: var(--ink-2);
+    max-width: 46ch;
+  }
+
+  .masthead-side {
+    text-align: right;
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+    line-height: 1.7;
+  }
+  @media (max-width: 760px) { .masthead-side { text-align: left; } }
+  .masthead-side a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .masthead-side a:hover { border-bottom-color: var(--mark); color: var(--mark); }
+
+  .assurance {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    color: var(--mark);
+    border: 1px solid var(--mark);
+    padding: 0.3rem 0.7rem;
+    margin-top: 1.5rem;
+  }
+
+  /* ─── section headings ───────────────────────────────── */
+  .kicker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .kicker::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  /* ─── editor ─────────────────────────────────────────── */
+  .editor-block { margin-bottom: 4rem; }
+
+  .editor-tools {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .link-btn {
+    font: inherit;
+    font-size: 0.8125rem;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--ink-3);
+    color: var(--ink-2);
+    padding: 0 0 1px;
+    margin-right: 1.25rem;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  .link-btn:hover { color: var(--mark); border-bottom-color: var(--mark); }
+
+  .sheet {
+    background: #fff;
+    border: 1px solid var(--rule);
+    box-shadow: 0 1px 0 var(--rule-soft), 0 12px 28px -22px rgba(22,24,28,.4);
+  }
+  .sheet pre {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.85;
+    padding: 1.75rem 2rem;
+    overflow-x: auto;
+    color: var(--ink-2);
+    counter-reset: ln;
+  }
+  .sheet .ln { display: block; }
+  .sheet .ln::before {
+    counter-increment: ln;
+    content: counter(ln);
+    display: inline-block;
+    width: 2.25rem;
+    color: #b9b9b1;
+    user-select: none;
+  }
+  .sheet .ln[data-mark="error"] { background: rgba(168,50,31,.055); }
+  .sheet .ln[data-mark="warn"]  { background: rgba(138,100,20,.06); }
+  .sheet .kw { color: var(--mark); font-weight: 500; }
+  .sheet .st { color: #7a5518; }
+
+  /* ─── findings as annotated entries ──────────────────── */
+  .summary {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 1.5rem;
+    margin-bottom: 2.25rem;
+    color: var(--ink);
+  }
+  .summary b { font-style: italic; }
+
+  .entry {
+    display: grid;
+    grid-template-columns: 8.5rem 1fr;
+    gap: 2.5rem;
+    padding: 2.25rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  @media (max-width: 760px) {
+    .entry { grid-template-columns: 1fr; gap: 0.75rem; }
+  }
+
+  .entry-meta { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; line-height: 1.9; }
+  .entry-meta .sev {
+    display: block;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .entry[data-sev="error"] .sev { color: var(--error); }
+  .entry[data-sev="warn"]  .sev { color: var(--warn); }
+  .entry[data-sev="info"]  .sev { color: var(--info); }
+  .entry-meta .loc { color: var(--ink-3); }
+  .entry-meta .rid {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--ink-2);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+    word-break: break-all;
+  }
+  .entry-meta .rid:hover { color: var(--mark); border-bottom-color: var(--mark); }
+
+  .entry-body { min-width: 0; }
+  .entry-body h3 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    font-size: 1.375rem;
+    line-height: 1.35;
+    margin-bottom: 0.85rem;
+    max-width: 34ch;
+  }
+  .quote {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+    border-left: 2px solid var(--rule);
+    padding: 0.35rem 0 0.35rem 1rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ─── explanation ────────────────────────────────────── */
+  .explain {
+    margin-top: 1.5rem;
+    background: var(--paper-2);
+    border-left: 2px solid var(--mark);
+    padding: 1.5rem 1.75rem;
+  }
+  .explain .kicker { margin-bottom: 0.85rem; }
+  .explain .kicker::after { background: #cfcfc7; }
+  .explain p {
+    font-size: 0.9375rem;
+    color: var(--ink-2);
+    max-width: 60ch;
+  }
+  .explain p + p { margin-top: 0.9rem; }
+  .explain code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8125rem;
+    background: #fff;
+    border: 1px solid var(--rule);
+    padding: 0.05rem 0.3rem;
+  }
+  .caret {
+    display: inline-block;
+    width: 2px; height: 1.05em;
+    background: var(--mark);
+    vertical-align: -0.15em;
+    margin-left: 3px;
+    animation: blink 1.05s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .colophon {
+    margin-top: 5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>Read your rules<br />before <em>they read you</em></h1>
+      <p class="standfirst">
+        Firestore security rules deploy instantly to every user, with no staged rollout.
+        This reads them first and tells you what a stranger could do.
+      </p>
+      <span class="assurance">nothing you paste leaves this browser</span>
+    </div>
+    <div class="masthead-side">
+      firestore-lint v0.1.1<br />
+      <a href="#">npm</a> · <a href="#">github</a> · <a href="#">9 rules</a>
+    </div>
+  </header>
+
+  <section class="editor-block">
+    <div class="kicker">the file</div>
+    <div class="editor-tools">
+      <button class="link-btn">Load a vulnerable example</button>
+      <button class="link-btn">Load a clean example</button>
+      <button class="link-btn">Clear</button>
+    </div>
+    <div class="sheet">
+<pre><span class="ln"><span class="kw">rules_version</span> = <span class="st">'2'</span>;</span><span class="ln"><span class="kw">service</span> cloud.firestore {</span><span class="ln">  <span class="kw">match</span> /databases/{database}/documents {</span><span class="ln">    <span class="kw">match</span> /posts/{postId} {</span><span class="ln" data-mark="error">      <span class="kw">allow</span> read: <span class="kw">if</span> true;</span><span class="ln" data-mark="warn">      <span class="kw">allow</span> write: <span class="kw">if</span> request.auth != null;</span><span class="ln">    }</span><span class="ln"></span><span class="ln">    <span class="kw">match</span> /{document=**} {</span><span class="ln" data-mark="error">      <span class="kw">allow</span> read, write: <span class="kw">if</span> request.time &lt; timestamp.date(2026, 1, 1);</span><span class="ln">    }</span><span class="ln">  }</span><span class="ln">}</span></pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">what it found</div>
+    <p class="summary">Four things worth your attention — <b>three of them serious.</b></p>
+
+    <article class="entry" data-sev="error">
+      <div class="entry-meta">
+        <span class="sev">Error</span>
+        <span class="loc">line 5, col 7</span>
+        <a class="rid" href="#">no-public-read</a>
+      </div>
+      <div class="entry-body">
+        <h3><code>allow read: if true</code> exposes this path to the entire internet.</h3>
+        <div class="quote">allow read: if true;</div>
+        <button class="link-btn">Explain this in plain language</button>
+
+        <div class="explain">
+          <div class="kicker">explanation</div>
+          <p>
+            Any person on the internet can read every document under <code>/posts</code> — no account,
+            no token, just a fetch against your project. If those documents hold draft content,
+            author emails, or anything not meant to be public, it is already public.
+          </p>
+          <p>
+            Scope the read to whoever should actually see it. For a published-posts collection that
+            usually means checking a flag on the document itself:
+            <code>allow read: if resource.data.published == true;</code><span class="caret"></span>
+          </p>
+        </div>
+      </div>
+    </article>
+
+    <article class="entry" data-sev="warn">
+      <div class="entry-meta">
+        <span class="sev">Warning</span>
+        <span class="loc">line 6, col 7</span>
+        <a class="rid" href="#">prefer-granular-write</a>
+      </div>
+      <div class="entry-body">
+        <h3>Prefer create, update, and delete over the broad write method.</h3>
+        <div class="quote">allow write: if request.auth != null;</div>
+        <button class="link-btn">Explain this in plain language</button>
+      </div>
+    </article>
+
+    <article class="entry" data-sev="error">
+      <div class="entry-meta">
+        <span class="sev">Error</span>
+        <span class="loc">line 10, col 7</span>
+        <a class="rid" href="#">no-wildcard-write</a>
+      </div>
+      <div class="entry-body">
+        <h3>Recursive wildcard path allows writes to every document beneath it.</h3>
+        <div class="quote">allow read, write: if request.time &lt; timestamp.date(2026, 1, 1);</div>
+        <button class="link-btn">Explain this in plain language</button>
+      </div>
+    </article>
+
+    <article class="entry" data-sev="error">
+      <div class="entry-meta">
+        <span class="sev">Error</span>
+        <span class="loc">line 10, col 7</span>
+        <a class="rid" href="#">no-expired-test-mode</a>
+      </div>
+      <div class="entry-body">
+        <h3>Test-mode rule expired on 2026-01-01; this path now denies all access.</h3>
+        <div class="quote">allow read, write: if request.time &lt; timestamp.date(2026, 1, 1);</div>
+        <button class="link-btn">Explain this in plain language</button>
+      </div>
+    </article>
+  </section>
+
+  <footer class="colophon">
+    <span>Analysed entirely in your browser. Nothing was uploaded.</span>
+    <span>firestore-lint · MIT</span>
+  </footer>
+
+</div>
+</body>
+</html>
